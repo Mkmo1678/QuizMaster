@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">题库助手</string>
+    <string name="accessibility_service_description">题库助手无障碍服务，用于自动识别题目并点击答案选项。仅在您主动开启悬浮窗答题功能时生效。</string>
 </resources>

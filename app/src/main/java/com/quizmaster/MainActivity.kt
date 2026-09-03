@@ -1,5 +1,6 @@
 package com.quizmaster
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -11,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.quizmaster.helper.ScreenCaptureHelper
 import com.quizmaster.ui.HomeScreen
 import com.quizmaster.ui.QuizListScreen
 import com.quizmaster.ui.QuizScreen
@@ -20,6 +22,10 @@ import com.quizmaster.viewmodel.QuizViewModel
 class MainActivity : ComponentActivity() {
 
     private val viewModel: QuizViewModel by viewModels()
+
+    companion object {
+        private const val REQUEST_SCREEN_CAPTURE = 1001
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,6 +40,7 @@ class MainActivity : ComponentActivity() {
                         composable("home") {
                             HomeScreen(
                                 viewModel = viewModel,
+                                onRequestCapturePermission = { requestScreenCapture() },
                                 onNavigateToQuizList = { navController.navigate("quizList") },
                                 onNavigateToQuiz = { quizSetId ->
                                     viewModel.loadQuestions(quizSetId)
@@ -60,6 +67,18 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    private fun requestScreenCapture() {
+        ScreenCaptureHelper.requestCapturePermission(this, REQUEST_SCREEN_CAPTURE)
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_SCREEN_CAPTURE) {
+            ScreenCaptureHelper.onCaptureResult(resultCode, data)
         }
     }
 }

@@ -89,6 +89,10 @@ dependencies {
     implementation("org.apache.poi:poi-ooxml:5.2.5")
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
 
+    // ML Kit OCR 文字识别
+    implementation("com.google.mlkit:text-recognition-chinese:16.0.0")
+    implementation("com.google.mlkit:text-recognition:16.0.0")
+
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
     testImplementation("junit:junit:4.13.2")

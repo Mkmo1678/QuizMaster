@@ -4,10 +4,10 @@ import android.content.Context
 import android.net.Uri
 import android.util.Log
 import com.quizmaster.parser.DocxParser
+import com.quizmaster.parser.LightXlsxParser
 import com.quizmaster.parser.PdfParser
 import com.quizmaster.parser.RawQuestion
 import com.quizmaster.parser.TxtParser
-import com.quizmaster.parser.XlsxParser
 import java.io.InputStream
 
 object FileImportUtil {
@@ -62,7 +62,7 @@ object FileImportUtil {
             when (type) {
                 FileType.DOCX -> DocxParser.parse(bytes.inputStream())
                 FileType.PDF -> PdfParser.parse(bytes.inputStream())
-                FileType.XLSX, FileType.XLS -> XlsxParser.parse(bytes.inputStream())
+                FileType.XLSX, FileType.XLS -> LightXlsxParser.parse(bytes.inputStream())
                 else -> TxtParser.parseString(bytesToString(bytes))
             }
         } catch (e: Throwable) {

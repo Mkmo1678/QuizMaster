@@ -1,8 +1,10 @@
 package com.quizmaster.ui
 
 import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -24,12 +26,15 @@ import kotlinx.coroutines.launch
 @Composable
 fun HomeScreen(
     viewModel: QuizViewModel,
+    onRequestCapturePermission: () -> Unit,
     onNavigateToQuizList: () -> Unit,
     onNavigateToQuiz: (Long) -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var rootStatus by remember { mutableStateOf<Boolean?>(null) }
+    var floatingEnabled by remember { mutableStateOf(com.quizmaster.service.FloatingWindowService.isRunning) }
+    var selectedQuizSetId by remember { mutableStateOf(-1L) }
     val importResult by viewModel.importResult.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val quizSets by viewModel.quizSets.collectAsState()
@@ -198,6 +203,119 @@ fun HomeScreen(
                 Icon(Icons.Default.List, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("我的题库 (${quizSets.size})", fontSize = 18.sp)
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // 悬浮窗答题助手
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        "悬浮窗答题助手",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "在其他APP/网页上答题时，悬浮窗可截图识别题目，自动匹配题库显示答案",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // 选择题库
+                    Text("选择题库:", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    quizSets.forEach { set ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { selectedQuizSetId = set.id }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = selectedQuizSetId == set.id,
+                                onClick = { selectedQuizSetId = set.id }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("${set.name} (${set.questionCount}题)", fontSize = 14.sp)
+                        }
+                    }
+                    if (quizSets.isEmpty()) {
+                        Text("请先导入题库", fontSize = 13.sp, color = MaterialTheme.colorScheme.error)
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // 权限按钮
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = onRequestCapturePermission,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Screenshot, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("截图权限", fontSize = 12.sp)
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                val intent = android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                                context.startActivity(intent)
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.TouchApp, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("无障碍", fontSize = 12.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // 悬浮窗开关
+                    Button(
+                        onClick = {
+                            if (floatingEnabled) {
+                                context.stopService(android.content.Intent(context, com.quizmaster.service.FloatingWindowService::class.java))
+                                floatingEnabled = false
+                                android.widget.Toast.makeText(context, "悬浮窗已关闭", android.widget.Toast.LENGTH_SHORT).show()
+                            } else {
+                                if (selectedQuizSetId <= 0) {
+                                    android.widget.Toast.makeText(context, "请先选择题库", android.widget.Toast.LENGTH_SHORT).show()
+                                    return@Button
+                                }
+                                if (!com.quizmaster.helper.ScreenCaptureHelper.hasPermission()) {
+                                    android.widget.Toast.makeText(context, "请先开启截图权限", android.widget.Toast.LENGTH_SHORT).show()
+                                    return@Button
+                                }
+                                val intent = android.content.Intent(context, com.quizmaster.service.FloatingWindowService::class.java)
+                                intent.putExtra("quizSetId", selectedQuizSetId)
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                    context.startForegroundService(intent)
+                                } else {
+                                    context.startService(intent)
+                                }
+                                floatingEnabled = true
+                                android.widget.Toast.makeText(context, "悬浮窗已开启，切换到答题页面点击识题", android.widget.Toast.LENGTH_LONG).show()
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (floatingEnabled) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Icon(
+                            if (floatingEnabled) Icons.Default.Close else Icons.Default.PlayArrow,
+                            contentDescription = null
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(if (floatingEnabled) "关闭悬浮窗" else "开启悬浮窗", fontSize = 16.sp)
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(32.dp))
