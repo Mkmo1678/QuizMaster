@@ -36,20 +36,31 @@ object ScreenCaptureHelper {
     }
 
     /**
-     * 在Activity的onActivityResult中调用，保存截图权限
+     * 在Activity的onActivityResult中调用，保存截图权限并创建MediaProjection
+     * 必须在Activity中创建MediaProjection，不能在Service中创建
      */
-    fun onCaptureResult(resultCode: Int, data: Intent?) {
+    fun onCaptureResult(context: Context, resultCode: Int, data: Intent?) {
         this.resultCode = resultCode
         this.resultData = data
-        android.util.Log.d("ScreenCapture", "onCaptureResult: resultCode=$resultCode, data=$data")
+        android.util.Log.d("ScreenCapture", "onCaptureResult: resultCode=$resultCode")
+
+        if (resultCode == Activity.RESULT_OK && data != null) {
+            try {
+                val manager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+                mediaProjection = manager.getMediaProjection(resultCode, data)
+                android.util.Log.d("ScreenCapture", "MediaProjection created successfully in Activity")
+            } catch (e: Exception) {
+                android.util.Log.e("ScreenCapture", "Failed to create MediaProjection", e)
+            }
+        }
     }
 
     /**
      * 检查是否已有截图权限
      */
     fun hasPermission(): Boolean {
-        val has = resultCode == Activity.RESULT_OK && resultData != null
-        android.util.Log.d("ScreenCapture", "hasPermission: $has (resultCode=$resultCode)")
+        val has = mediaProjection != null
+        android.util.Log.d("ScreenCapture", "hasPermission: $has")
         return has
     }
 
@@ -57,19 +68,14 @@ object ScreenCaptureHelper {
      * 截取当前屏幕
      */
     suspend fun captureScreen(context: Context): Bitmap? {
-        if (!hasPermission()) {
-            android.util.Log.e("ScreenCapture", "No permission")
+        val projection = mediaProjection
+        if (projection == null) {
+            android.util.Log.e("ScreenCapture", "MediaProjection is null, need to grant permission first")
             return null
         }
 
         return withContext(Dispatchers.Main) {
             try {
-                val projection = getMediaProjection(context)
-                if (projection == null) {
-                    android.util.Log.e("ScreenCapture", "Failed to get MediaProjection")
-                    return@withContext null
-                }
-
                 val metrics = DisplayMetrics().also {
                     (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager)
                         .defaultDisplay.getRealMetrics(it)
@@ -79,7 +85,7 @@ object ScreenCaptureHelper {
                 val height = metrics.heightPixels
                 val density = metrics.densityDpi
 
-                android.util.Log.d("ScreenCapture", "Screen size: ${width}x$height, density=$density")
+                android.util.Log.d("ScreenCapture", "Capturing: ${width}x$height")
 
                 val imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
                 val virtualDisplay = projection.createVirtualDisplay(
@@ -89,7 +95,6 @@ object ScreenCaptureHelper {
                     imageReader.surface, null, null
                 )
 
-                // 等待一帧
                 val bitmap = waitForBitmap(imageReader, width, height)
 
                 virtualDisplay.release()
@@ -101,20 +106,6 @@ object ScreenCaptureHelper {
                 null
             }
         }
-    }
-
-    private fun getMediaProjection(context: Context): MediaProjection? {
-        if (mediaProjection == null) {
-            try {
-                val manager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-                mediaProjection = manager.getMediaProjection(resultCode, resultData ?: return null)
-                android.util.Log.d("ScreenCapture", "MediaProjection created")
-            } catch (e: Exception) {
-                android.util.Log.e("ScreenCapture", "Failed to create MediaProjection", e)
-                return null
-            }
-        }
-        return mediaProjection
     }
 
     private suspend fun waitForBitmap(reader: ImageReader, width: Int, height: Int): Bitmap? {
@@ -130,8 +121,6 @@ object ScreenCaptureHelper {
                     val rowStride = planes[0].rowStride
                     val rowPadding = rowStride - pixelStride * width
 
-                    android.util.Log.d("ScreenCapture", "Image acquired: pixelStride=$pixelStride, rowStride=$rowStride, rowPadding=$rowPadding")
-
                     val bitmap = Bitmap.createBitmap(
                         width + rowPadding / pixelStride,
                         height,
@@ -140,7 +129,6 @@ object ScreenCaptureHelper {
                     bitmap.copyPixelsFromBuffer(buffer)
                     image.close()
 
-                    // 裁剪掉padding
                     val cropped = if (rowPadding > 0) {
                         Bitmap.createBitmap(bitmap, 0, 0, width, height)
                     } else {

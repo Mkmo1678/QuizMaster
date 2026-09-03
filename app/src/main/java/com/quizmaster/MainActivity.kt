@@ -78,7 +78,12 @@ class MainActivity : ComponentActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == REQUEST_SCREEN_CAPTURE) {
-            ScreenCaptureHelper.onCaptureResult(resultCode, data)
+            ScreenCaptureHelper.onCaptureResult(this, resultCode, data)
+            if (resultCode == Activity.RESULT_OK) {
+                android.widget.Toast.makeText(this, "截图权限已开启", android.widget.Toast.LENGTH_SHORT).show()
+            } else {
+                android.widget.Toast.makeText(this, "截图权限被拒绝", android.widget.Toast.LENGTH_SHORT).show()
+            }
         }
     }
 }
