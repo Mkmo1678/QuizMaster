@@ -1,10 +1,10 @@
 package com.quizmaster
 
-import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -24,8 +24,19 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: QuizViewModel by viewModels()
 
-    companion object {
-        private const val REQUEST_SCREEN_CAPTURE = 1001
+    // 使用新的Activity Result API请求截图权限
+    private val screenCaptureLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val resultCode = result.resultCode
+        val data = result.data
+        android.util.Log.d("MainActivity", "Screen capture result: $resultCode, data=$data")
+        ScreenCaptureHelper.onCaptureResult(this, resultCode, data)
+        if (resultCode == RESULT_OK) {
+            android.widget.Toast.makeText(this, "截图权限已开启", android.widget.Toast.LENGTH_SHORT).show()
+        } else {
+            android.widget.Toast.makeText(this, "截图权限被拒绝", android.widget.Toast.LENGTH_SHORT).show()
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -72,19 +83,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestScreenCapture() {
-        ScreenCaptureHelper.requestCapturePermission(this, REQUEST_SCREEN_CAPTURE)
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQUEST_SCREEN_CAPTURE) {
-            ScreenCaptureHelper.onCaptureResult(this, resultCode, data)
-            if (resultCode == Activity.RESULT_OK) {
-                android.widget.Toast.makeText(this, "截图权限已开启", android.widget.Toast.LENGTH_SHORT).show()
-            } else {
-                android.widget.Toast.makeText(this, "截图权限被拒绝", android.widget.Toast.LENGTH_SHORT).show()
-            }
-        }
+        val mediaProjectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as android.media.projection.MediaProjectionManager
+        val intent = mediaProjectionManager.createScreenCaptureIntent()
+        screenCaptureLauncher.launch(intent)
     }
 }

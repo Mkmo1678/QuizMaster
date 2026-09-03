@@ -244,6 +244,24 @@ fun HomeScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
+                    // 权限状态显示
+                    val hasCapturePermission = com.quizmaster.helper.ScreenCaptureHelper.hasPermission()
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            if (hasCapturePermission) Icons.Default.CheckCircle else Icons.Default.Error,
+                            contentDescription = null,
+                            tint = if (hasCapturePermission) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            if (hasCapturePermission) "截图权限：已开启" else "截图权限：未开启",
+                            fontSize = 13.sp,
+                            color = if (hasCapturePermission) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     // 权限按钮
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -255,7 +273,7 @@ fun HomeScreen(
                         ) {
                             Icon(Icons.Default.Screenshot, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("截图权限", fontSize = 12.sp)
+                            Text(if (hasCapturePermission) "重新授权截图" else "截图权限", fontSize = 12.sp)
                         }
                         OutlinedButton(
                             onClick = {
