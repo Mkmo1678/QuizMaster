@@ -25,7 +25,11 @@ object ScreenCaptureHelper {
     private var mediaProjection: MediaProjection? = null
     private var resultCode: Int = 0
     private var resultData: Intent? = null
+    private var appContext: Context? = null
     private val mainHandler = Handler(Looper.getMainLooper())
+
+    var lastError: String = ""
+        private set
 
     /**
      * 初始化截图权限（需要在Activity中调用）
@@ -37,21 +41,35 @@ object ScreenCaptureHelper {
 
     /**
      * 在Activity的onActivityResult中调用，保存截图权限并创建MediaProjection
-     * 必须在Activity中创建MediaProjection，不能在Service中创建
      */
     fun onCaptureResult(context: Context, resultCode: Int, data: Intent?) {
         this.resultCode = resultCode
         this.resultData = data
-        android.util.Log.d("ScreenCapture", "onCaptureResult: resultCode=$resultCode")
+        this.appContext = context.applicationContext
+        lastError = ""
+
+        android.util.Log.d("ScreenCapture", "onCaptureResult: resultCode=$resultCode, data=$data")
 
         if (resultCode == Activity.RESULT_OK && data != null) {
             try {
                 val manager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+                android.util.Log.d("ScreenCapture", "MediaProjectionManager obtained: $manager")
                 mediaProjection = manager.getMediaProjection(resultCode, data)
-                android.util.Log.d("ScreenCapture", "MediaProjection created successfully in Activity")
+                android.util.Log.d("ScreenCapture", "MediaProjection created: ${mediaProjection != null}")
+
+                if (mediaProjection == null) {
+                    lastError = "MediaProjection创建返回null"
+                    android.util.Log.e("ScreenCapture", lastError)
+                }
             } catch (e: Exception) {
+                lastError = "创建MediaProjection异常: ${e.javaClass.simpleName}: ${e.message}"
                 android.util.Log.e("ScreenCapture", "Failed to create MediaProjection", e)
+            } catch (e: Error) {
+                lastError = "创建MediaProjection错误: ${e.javaClass.simpleName}: ${e.message}"
+                android.util.Log.e("ScreenCapture", "Failed to create MediaProjection (Error)", e)
             }
+        } else {
+            lastError = "授权被拒绝或数据为空"
         }
     }
 
@@ -60,7 +78,7 @@ object ScreenCaptureHelper {
      */
     fun hasPermission(): Boolean {
         val has = mediaProjection != null
-        android.util.Log.d("ScreenCapture", "hasPermission: $has")
+        android.util.Log.d("ScreenCapture", "hasPermission: $has, lastError=$lastError")
         return has
     }
 
@@ -70,13 +88,23 @@ object ScreenCaptureHelper {
     suspend fun captureScreen(context: Context): Bitmap? {
         val projection = mediaProjection
         if (projection == null) {
-            android.util.Log.e("ScreenCapture", "MediaProjection is null, need to grant permission first")
-            return null
+            // 尝试重新创建
+            if (resultCode == Activity.RESULT_OK && resultData != null && appContext != null) {
+                try {
+                    val manager = appContext!!.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+                    mediaProjection = manager.getMediaProjection(resultCode, resultData!!)
+                } catch (e: Exception) {
+                    android.util.Log.e("ScreenCapture", "Failed to recreate MediaProjection", e)
+                }
+            }
+            if (mediaProjection == null) {
+                android.util.Log.e("ScreenCapture", "MediaProjection is null, lastError=$lastError")
+                return null
+            }
         }
 
         return withContext(Dispatchers.Main) {
             try {
-                val proj = projection ?: return@withContext null
                 val metrics = DisplayMetrics().also {
                     (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager)
                         .defaultDisplay.getRealMetrics(it)
@@ -89,7 +117,7 @@ object ScreenCaptureHelper {
                 android.util.Log.d("ScreenCapture", "Capturing: ${width}x$height")
 
                 val imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
-                val virtualDisplay = proj.createVirtualDisplay(
+                val virtualDisplay = mediaProjection!!.createVirtualDisplay(
                     "ScreenCapture",
                     width, height, density,
                     DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
@@ -104,6 +132,7 @@ object ScreenCaptureHelper {
                 bitmap
             } catch (e: Exception) {
                 android.util.Log.e("ScreenCapture", "Capture failed", e)
+                lastError = "截图失败: ${e.message}"
                 null
             }
         }

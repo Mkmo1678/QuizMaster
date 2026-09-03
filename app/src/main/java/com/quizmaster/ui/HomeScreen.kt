@@ -246,6 +246,7 @@ fun HomeScreen(
 
                     // 权限状态显示
                     val hasCapturePermission = com.quizmaster.helper.ScreenCaptureHelper.hasPermission()
+                    val captureError = com.quizmaster.helper.ScreenCaptureHelper.lastError
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             if (hasCapturePermission) Icons.Default.CheckCircle else Icons.Default.Error,
@@ -258,6 +259,14 @@ fun HomeScreen(
                             if (hasCapturePermission) "截图权限：已开启" else "截图权限：未开启",
                             fontSize = 13.sp,
                             color = if (hasCapturePermission) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                        )
+                    }
+                    if (captureError.isNotBlank() && !hasCapturePermission) {
+                        Text(
+                            "错误: $captureError",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(top = 4.dp)
                         )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
