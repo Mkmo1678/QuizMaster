@@ -324,7 +324,7 @@ fun HomeScreen(
                                     android.widget.Toast.makeText(context, "请先选择题库", android.widget.Toast.LENGTH_SHORT).show()
                                     return@Button
                                 }
-                                if (!com.quizmaster.helper.ScreenCaptureHelper.hasPermission()) {
+                                if (!com.quizmaster.helper.ScreenCaptureHelper.isAuthorized()) {
                                     android.widget.Toast.makeText(context, "请先开启截图权限", android.widget.Toast.LENGTH_SHORT).show()
                                     return@Button
                                 }
