@@ -9,6 +9,7 @@ data class RawQuestion(
     var content: String = "",
     var options: MutableList<String> = mutableListOf(),
     var answer: String = "",
+    var answerContent: String = "",  // 答案对应的选项内容
     var analysis: String = ""
 )
 
@@ -157,11 +158,20 @@ object QuestionParser {
             if (cleanAnswer.length >= 2) {
                 q.type = QuestionType.MULTIPLE_CHOICE
                 q.answer = cleanAnswer.uppercase().toCharArray().sorted().joinToString("")
+                q.answerContent = cleanAnswer.uppercase().toCharArray()
+                    .map { it - 'A' }
+                    .filter { it < q.options.size }
+                    .map { q.options[it].trim() }
+                    .joinToString("|||")
                 return
             }
             if (cleanAnswer.length == 1) {
                 q.type = QuestionType.SINGLE_CHOICE
                 q.answer = cleanAnswer.uppercase()
+                val idx = cleanAnswer.uppercase()[0] - 'A'
+                if (idx < q.options.size) {
+                    q.answerContent = q.options[idx].trim()
+                }
                 return
             }
         }
@@ -195,6 +205,7 @@ object QuestionParser {
             content = raw.content,
             options = raw.options.joinToString("|||"),
             answer = raw.answer,
+            answerContent = raw.answerContent,
             analysis = raw.analysis,
             orderIndex = index
         )

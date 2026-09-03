@@ -19,7 +19,8 @@ data class Question(
     val type: QuestionType,
     val content: String,           // 题干
     val options: String = "",      // 选项，用 ||| 分隔
-    val answer: String = "",       // 答案
+    val answer: String = "",       // 答案（字母或文字）
+    val answerContent: String = "", // 答案对应的选项内容（用于选项打乱后匹配）
     val analysis: String = "",     // 解析
     val orderIndex: Int = 0,
     val isCollected: Boolean = false,

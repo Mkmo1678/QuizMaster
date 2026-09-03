@@ -6,63 +6,82 @@ import org.apache.poi.ss.usermodel.WorkbookFactory
 import java.io.InputStream
 
 object XlsxParser {
-    data class ColumnMapping(
-        val contentCol: Int = 0,
-        val optionACol: Int = -1,
-        val optionBCol: Int = -1,
-        val optionCCol: Int = -1,
-        val optionDCol: Int = -1,
-        val answerCol: Int = -1,
-        val analysisCol: Int = -1,
-        val typeCol: Int = -1
-    )
 
     fun parse(inputStream: InputStream): List<RawQuestion> {
         val workbook = WorkbookFactory.create(inputStream)
         val questions = mutableListOf<RawQuestion>()
 
         for (sheet in workbook) {
+            val sheetName = sheet.sheetName
             val rows = sheet.toList()
-            if (rows.isEmpty()) continue
+            if (rows.size < 3) continue
 
-            // 自动识别列映射（基于表头）
-            val headerRow = rows.first()
-            val mapping = detectColumns(headerRow.map { getCellString(it) })
+            // 第二行是表头（索引1）
+            val headers = rows[1].map { getCellString(it).trim() }
+            if (headers.isEmpty()) continue
 
-            // 从第二行开始读取
-            for (i in 1 until rows.size) {
+            // 根据sheet名称判断题型
+            val type = detectSheetType(sheetName)
+
+            // 识别列索引
+            val colMap = detectColumns(headers)
+
+            // 从第三行开始读取数据（索引2）
+            for (i in 2 until rows.size) {
                 val row = rows[i]
                 val cells = row.map { getCellString(it) }
                 if (cells.all { it.isBlank() }) continue
 
                 val q = RawQuestion()
-                q.content = getSafe(cells, mapping.contentCol)
+                q.type = type
+                q.content = getSafe(cells, colMap["content"] ?: 0)
+                q.analysis = getSafe(cells, colMap["analysis"] ?: -1)
 
-                if (mapping.optionACol >= 0) q.options.add(getSafe(cells, mapping.optionACol))
-                if (mapping.optionBCol >= 0) q.options.add(getSafe(cells, mapping.optionBCol))
-                if (mapping.optionCCol >= 0) q.options.add(getSafe(cells, mapping.optionCCol))
-                if (mapping.optionDCol >= 0) q.options.add(getSafe(cells, mapping.optionDCol))
-
-                if (mapping.answerCol >= 0) q.answer = getSafe(cells, mapping.answerCol)
-                if (mapping.analysisCol >= 0) q.analysis = getSafe(cells, mapping.analysisCol)
-
-                // 题型识别
-                if (mapping.typeCol >= 0) {
-                    when (getSafe(cells, mapping.typeCol)) {
-                        "单选", "单选题", "single" -> q.type = QuestionType.SINGLE_CHOICE
-                        "多选", "多选题", "multiple" -> q.type = QuestionType.MULTIPLE_CHOICE
-                        "判断", "判断题", "tf" -> q.type = QuestionType.TRUE_FALSE
-                        "填空", "填空题", "fill" -> q.type = QuestionType.FILL_BLANK
-                        "简答", "简答题", "short" -> q.type = QuestionType.SHORT_ANSWER
-                        "问答", "问答题", "essay" -> q.type = QuestionType.ESSAY
+                when (type) {
+                    QuestionType.SINGLE_CHOICE, QuestionType.MULTIPLE_CHOICE -> {
+                        // 读取选项
+                        val optionCols = listOf(
+                            colMap["optionA"], colMap["optionB"],
+                            colMap["optionC"], colMap["optionD"],
+                            colMap["optionE"], colMap["optionF"]
+                        ).mapNotNull { it }
+                        for (col in optionCols) {
+                            val opt = getSafe(cells, col)
+                            if (opt.isNotBlank()) {
+                                q.options.add(opt)
+                            }
+                        }
+                        // 答案是字母，需要转换成内容
+                        val answerLetter = getSafe(cells, colMap["answer"] ?: -1).uppercase().trim()
+                        q.answer = answerLetter
+                        // 转换答案字母为内容
+                        val letters = answerLetter.replace(Regex("[^A-H]"), "")
+                        if (letters.isNotEmpty()) {
+                            val contents = letters.map { it - 'A' }
+                                .filter { it < q.options.size }
+                                .map { q.options[it].trim() }
+                            q.answerContent = contents.joinToString("|||")
+                        }
+                    }
+                    QuestionType.TRUE_FALSE -> {
+                        val ans = getSafe(cells, colMap["answer"] ?: -1).trim()
+                        q.answer = when {
+                            ans in listOf("正确", "对", "√", "T", "TRUE", "是", "真") -> "正确"
+                            ans in listOf("错误", "错", "×", "F", "FALSE", "否", "假") -> "错误"
+                            else -> ans
+                        }
+                    }
+                    QuestionType.FILL_BLANK -> {
+                        q.answer = getSafe(cells, colMap["answer"] ?: -1)
+                        q.answerContent = q.answer
+                    }
+                    QuestionType.SHORT_ANSWER, QuestionType.ESSAY -> {
+                        q.answer = getSafe(cells, colMap["answer"] ?: -1)
+                        q.answerContent = q.answer
                     }
                 }
 
                 if (q.content.isNotBlank()) {
-                    QuestionParser.parseText(q.content).firstOrNull()?.let { parsed ->
-                        if (q.options.isEmpty()) q.options = parsed.options
-                        if (q.answer.isBlank()) q.answer = parsed.answer
-                    }
                     questions.add(q)
                 }
             }
@@ -72,30 +91,35 @@ object XlsxParser {
         return questions
     }
 
-    private fun detectColumns(headers: List<String>): ColumnMapping {
-        var mapping = ColumnMapping()
+    private fun detectSheetType(sheetName: String): QuestionType {
+        return when {
+            sheetName.contains("多选") -> QuestionType.MULTIPLE_CHOICE
+            sheetName.contains("单选") -> QuestionType.SINGLE_CHOICE
+            sheetName.contains("判断") -> QuestionType.TRUE_FALSE
+            sheetName.contains("填空") -> QuestionType.FILL_BLANK
+            sheetName.contains("简答") -> QuestionType.SHORT_ANSWER
+            sheetName.contains("问答") || sheetName.contains("论述") -> QuestionType.ESSAY
+            else -> QuestionType.SINGLE_CHOICE
+        }
+    }
+
+    private fun detectColumns(headers: List<String>): Map<String, Int> {
+        val map = mutableMapOf<String, Int>()
         headers.forEachIndexed { index, header ->
-            val h = header.lowercase()
+            val h = header.replace("*", "").trim()
             when {
-                h.contains("题目") || h.contains("题干") || h.contains("内容") || h == "question" ->
-                    mapping = mapping.copy(contentCol = index)
-                h.contains("选项a") || h == "a" || h.contains("a选项") ->
-                    mapping = mapping.copy(optionACol = index)
-                h.contains("选项b") || h == "b" || h.contains("b选项") ->
-                    mapping = mapping.copy(optionBCol = index)
-                h.contains("选项c") || h == "c" || h.contains("c选项") ->
-                    mapping = mapping.copy(optionCCol = index)
-                h.contains("选项d") || h == "d" || h.contains("d选项") ->
-                    mapping = mapping.copy(optionDCol = index)
-                h.contains("答案") || h == "answer" ->
-                    mapping = mapping.copy(answerCol = index)
-                h.contains("解析") || h == "analysis" ->
-                    mapping = mapping.copy(analysisCol = index)
-                h.contains("题型") || h.contains("类型") || h == "type" ->
-                    mapping = mapping.copy(typeCol = index)
+                h == "题目" || h == "题干" || h == "小题题目" -> map["content"] = index
+                h == "参考答案" || h == "答案" -> map["answer"] = index
+                h == "题目解析" || h == "解析" -> map["analysis"] = index
+                h == "选项A" || h == "A" -> map["optionA"] = index
+                h == "选项B" || h == "B" -> map["optionB"] = index
+                h == "选项C" || h == "C" -> map["optionC"] = index
+                h == "选项D" || h == "D" -> map["optionD"] = index
+                h == "选项E" || h == "E" -> map["optionE"] = index
+                h == "选项F" || h == "F" -> map["optionF"] = index
             }
         }
-        return mapping
+        return map
     }
 
     private fun getSafe(list: List<String>, index: Int): String {
@@ -106,7 +130,10 @@ object XlsxParser {
         if (cell == null) return ""
         return when (cell.cellType) {
             CellType.STRING -> cell.stringCellValue.trim()
-            CellType.NUMERIC -> cell.numericCellValue.toLong().toString()
+            CellType.NUMERIC -> {
+                val d = cell.numericCellValue
+                if (d == d.toLong().toDouble()) d.toLong().toString() else d.toString()
+            }
             CellType.BOOLEAN -> cell.booleanCellValue.toString()
             CellType.FORMULA -> try { cell.stringCellValue.trim() } catch (e: Exception) { "" }
             else -> ""

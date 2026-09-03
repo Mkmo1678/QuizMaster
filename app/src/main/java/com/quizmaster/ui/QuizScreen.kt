@@ -67,6 +67,34 @@ fun QuizScreen(
     val currentQuestion = questions[currentIndex]
     val userAnswer = userAnswers[currentQuestion.id] ?: ""
 
+    // 显示答案时自动勾选正确选项
+    LaunchedEffect(showAnswer, currentQuestion.id) {
+        if (showAnswer) {
+            val autoAnswer = when (currentQuestion.type) {
+                QuestionType.SINGLE_CHOICE -> {
+                    val options = QuestionParser.parseOptions(currentQuestion.options)
+                    val labels = listOf("A", "B", "C", "D", "E", "F", "G", "H")
+                    options.indexOfFirst { isOptionCorrect(it, currentQuestion.answerContent) }
+                        .takeIf { it >= 0 }?.let { labels[it] } ?: ""
+                }
+                QuestionType.MULTIPLE_CHOICE -> {
+                    val options = QuestionParser.parseOptions(currentQuestion.options)
+                    val labels = listOf("A", "B", "C", "D", "E", "F", "G", "H")
+                    val correctAnswers = currentQuestion.answerContent.split("|||").map { it.trim() }
+                    options.mapIndexedNotNull { idx, opt ->
+                        if (correctAnswers.any { isOptionCorrect(opt, it) }) labels[idx] else null
+                    }.joinToString("")
+                }
+                QuestionType.TRUE_FALSE -> currentQuestion.answer
+                QuestionType.FILL_BLANK -> currentQuestion.answerContent.ifBlank { currentQuestion.answer }
+                else -> ""
+            }
+            if (autoAnswer.isNotBlank()) {
+                viewModel.setAnswer(currentQuestion.id, autoAnswer)
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -226,7 +254,8 @@ fun SingleChoiceQuestion(
         options.forEachIndexed { index, option ->
             val label = optionLabels.getOrElse(index) { (index + 65).toChar().toString() }
             val isSelected = selectedAnswer == label
-            val isCorrect = showAnswer && question.answer.uppercase() == label
+            // 按答案内容匹配，而不是按字母
+            val isCorrect = showAnswer && isOptionCorrect(option, question.answerContent)
             val isWrong = showAnswer && isSelected && !isCorrect
 
             OptionCard(
@@ -239,6 +268,20 @@ fun SingleChoiceQuestion(
             )
         }
     }
+}
+
+// 判断选项是否是正确答案（按内容模糊匹配）
+fun isOptionCorrect(option: String, answerContent: String): Boolean {
+    if (answerContent.isBlank()) return false
+    val opt = option.trim()
+    val ans = answerContent.trim()
+    // 精确匹配
+    if (opt == ans) return true
+    // 去除空格后匹配
+    if (opt.replace(" ", "") == ans.replace(" ", "")) return true
+    // 包含匹配（答案内容在选项中）
+    if (opt.contains(ans) || ans.contains(opt)) return true
+    return false
 }
 
 @Composable
@@ -261,7 +304,9 @@ fun MultipleChoiceQuestion(
         options.forEachIndexed { index, option ->
             val label = optionLabels.getOrElse(index) { (index + 65).toChar().toString() }
             val isSelected = selectedSet.contains(label[0])
-            val isCorrect = showAnswer && question.answer.uppercase().contains(label)
+            // 多选题按内容匹配
+            val correctAnswers = question.answerContent.split("|||").map { it.trim() }
+            val isCorrect = showAnswer && correctAnswers.any { isOptionCorrect(option, it) }
             val isWrong = showAnswer && isSelected && !isCorrect
 
             OptionCard(
@@ -577,14 +622,14 @@ fun AnswerCard(question: Question, context: Context) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "正确答案: ${question.answer}",
+                    "正确答案: ${if (question.answerContent.isNotBlank()) question.answerContent.replace("|||", "、") else question.answer}",
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF1565C0),
                     fontSize = 15.sp
                 )
                 if (question.type == QuestionType.SHORT_ANSWER || question.type == QuestionType.ESSAY) {
                     TextButton(onClick = {
-                        copyToClipboard(context, question.answer)
+                        copyToClipboard(context, question.answer.ifBlank { question.answerContent })
                         Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()
                     }) {
                         Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
