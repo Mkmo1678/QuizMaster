@@ -118,8 +118,13 @@ object ScreenCaptureHelper {
                     DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
                     imageReader.surface, null, null
                 )
+                android.util.Log.d("ScreenCapture", "VirtualDisplay created: ${virtualDisplay != null}")
+
+                // 等待系统激活录制
+                kotlinx.coroutines.delay(500)
 
                 val bitmap = waitForBitmap(imageReader, width, height)
+                android.util.Log.d("ScreenCapture", "Bitmap captured: ${bitmap != null}")
 
                 virtualDisplay?.release()
                 imageReader.close()

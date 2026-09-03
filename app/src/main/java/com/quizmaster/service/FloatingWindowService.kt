@@ -188,7 +188,8 @@ class FloatingWindowService : Service() {
                 val bitmap = ScreenCaptureHelper.captureScreen(this@FloatingWindowService)
 
                 if (bitmap == null) {
-                    showResult("截图失败，请检查截图权限")
+                    val err = ScreenCaptureHelper.lastError
+                    showResult("截图失败: ${err.ifBlank { "未知错误" }}")
                     return@launch
                 }
 
