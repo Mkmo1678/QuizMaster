@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
@@ -51,7 +52,22 @@ class FloatingWindowService : Service() {
         super.onCreate()
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         createNotificationChannel()
-        startForeground(NOTIFICATION_ID, createNotification())
+        // Android 14+ 需要指定 foregroundServiceType 为 mediaProjection
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            try {
+                startForeground(
+                    NOTIFICATION_ID,
+                    createNotification(),
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION or
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "startForeground with type failed", e)
+                startForeground(NOTIFICATION_ID, createNotification())
+            }
+        } else {
+            startForeground(NOTIFICATION_ID, createNotification())
+        }
         isRunning = true
         showFloatingButton()
     }
@@ -161,9 +177,7 @@ class FloatingWindowService : Service() {
         serviceScope.launch {
             try {
                 // 1. 截图
-                val bitmap = withContext(Dispatchers.IO) {
-                    ScreenCaptureHelper.captureScreen(this@FloatingWindowService)
-                }
+                val bitmap = ScreenCaptureHelper.captureScreen(this@FloatingWindowService)
 
                 if (bitmap == null) {
                     showResult("截图失败，请检查截图权限")
