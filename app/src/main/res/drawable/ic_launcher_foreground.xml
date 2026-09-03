@@ -1,0 +1,21 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 书本背景 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M30,28 L78,28 L78,76 L30,76 Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"/>
+    <!-- 书本线条 -->
+    <path
+        android:strokeColor="#1565C0"
+        android:strokeWidth="3"
+        android:pathData="M38,40 L70,40 M38,50 L70,50 M38,60 L60,60"/>
+    <!-- 勾选标记 -->
+    <path
+        android:fillColor="#2E7D32"
+        android:pathData="M62,58 L68,64 L78,52 L76,50 L68,58 L64,54 Z"/>
+</vector>
