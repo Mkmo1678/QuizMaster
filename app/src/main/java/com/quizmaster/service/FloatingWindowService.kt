@@ -281,7 +281,7 @@ class FloatingWindowService : Service() {
         }
 
         val titleView = TextView(this).apply {
-            text = "题目答案"
+            this.text = "题目答案"
             textSize = 18f
             setTextColor(0xFF1565C0.toInt())
             paint.isFakeBoldText = true
