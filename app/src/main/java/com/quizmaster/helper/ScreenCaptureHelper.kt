@@ -76,6 +76,7 @@ object ScreenCaptureHelper {
 
         return withContext(Dispatchers.Main) {
             try {
+                val proj = projection ?: return@withContext null
                 val metrics = DisplayMetrics().also {
                     (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager)
                         .defaultDisplay.getRealMetrics(it)
@@ -88,7 +89,7 @@ object ScreenCaptureHelper {
                 android.util.Log.d("ScreenCapture", "Capturing: ${width}x$height")
 
                 val imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
-                val virtualDisplay = projection.createVirtualDisplay(
+                val virtualDisplay = proj.createVirtualDisplay(
                     "ScreenCapture",
                     width, height, density,
                     DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
@@ -97,7 +98,7 @@ object ScreenCaptureHelper {
 
                 val bitmap = waitForBitmap(imageReader, width, height)
 
-                virtualDisplay.release()
+                virtualDisplay?.release()
                 imageReader.close()
 
                 bitmap
