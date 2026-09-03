@@ -246,19 +246,32 @@ fun HomeScreen(
 
                     // 权限状态显示
                     val hasCapturePermission = com.quizmaster.helper.ScreenCaptureHelper.hasPermission()
+                    val isAuthorized = com.quizmaster.helper.ScreenCaptureHelper.isAuthorized()
                     val captureError = com.quizmaster.helper.ScreenCaptureHelper.lastError
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            if (hasCapturePermission) Icons.Default.CheckCircle else Icons.Default.Error,
+                            if (hasCapturePermission) Icons.Default.CheckCircle else if (isAuthorized) Icons.Default.Info else Icons.Default.Error,
                             contentDescription = null,
-                            tint = if (hasCapturePermission) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                            tint = when {
+                                hasCapturePermission -> MaterialTheme.colorScheme.primary
+                                isAuthorized -> androidx.compose.ui.graphics.Color(0xFFFF9800)
+                                else -> MaterialTheme.colorScheme.error
+                            },
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            if (hasCapturePermission) "截图权限：已开启" else "截图权限：未开启",
+                            when {
+                                hasCapturePermission -> "截图权限：已开启"
+                                isAuthorized -> "截图已授权，请开启悬浮窗"
+                                else -> "截图权限：未开启"
+                            },
                             fontSize = 13.sp,
-                            color = if (hasCapturePermission) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                            color = when {
+                                hasCapturePermission -> MaterialTheme.colorScheme.primary
+                                isAuthorized -> androidx.compose.ui.graphics.Color(0xFFFF9800)
+                                else -> MaterialTheme.colorScheme.error
+                            }
                         )
                     }
                     if (captureError.isNotBlank() && !hasCapturePermission) {

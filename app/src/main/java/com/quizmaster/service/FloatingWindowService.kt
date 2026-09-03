@@ -68,6 +68,14 @@ class FloatingWindowService : Service() {
         } else {
             startForeground(NOTIFICATION_ID, createNotification())
         }
+
+        // 在前台服务中创建MediaProjection（Android 14+要求）
+        val initSuccess = ScreenCaptureHelper.initMediaProjection(this)
+        Log.d(TAG, "MediaProjection init in service: $initSuccess, error: ${ScreenCaptureHelper.lastError}")
+        if (!initSuccess) {
+            Toast.makeText(this, "截图初始化失败: ${ScreenCaptureHelper.lastError}", Toast.LENGTH_LONG).show()
+        }
+
         isRunning = true
         showFloatingButton()
     }

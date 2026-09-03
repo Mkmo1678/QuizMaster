@@ -30,10 +30,10 @@ class MainActivity : ComponentActivity() {
     ) { result ->
         val resultCode = result.resultCode
         val data = result.data
-        android.util.Log.d("MainActivity", "Screen capture result: $resultCode, data=$data")
-        ScreenCaptureHelper.onCaptureResult(this, resultCode, data)
+        android.util.Log.d("MainActivity", "Screen capture result: $resultCode")
+        ScreenCaptureHelper.onCaptureResult(resultCode, data)
         if (resultCode == RESULT_OK) {
-            android.widget.Toast.makeText(this, "截图权限已开启", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(this, "截图授权成功，请开启悬浮窗", android.widget.Toast.LENGTH_SHORT).show()
         } else {
             android.widget.Toast.makeText(this, "截图权限被拒绝", android.widget.Toast.LENGTH_SHORT).show()
         }

@@ -25,14 +25,13 @@ object ScreenCaptureHelper {
     private var mediaProjection: MediaProjection? = null
     private var resultCode: Int = 0
     private var resultData: Intent? = null
-    private var appContext: Context? = null
     private val mainHandler = Handler(Looper.getMainLooper())
 
     var lastError: String = ""
         private set
 
     /**
-     * 初始化截图权限（需要在Activity中调用）
+     * 请求截图权限（需要在Activity中调用）
      */
     fun requestCapturePermission(activity: Activity, requestCode: Int) {
         val manager = activity.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
@@ -40,46 +39,55 @@ object ScreenCaptureHelper {
     }
 
     /**
-     * 在Activity的onActivityResult中调用，保存截图权限并创建MediaProjection
+     * 保存授权结果（在Activity的onActivityResult中调用）
+     * 注意：不在此创建MediaProjection，必须在前台服务中创建
      */
-    fun onCaptureResult(context: Context, resultCode: Int, data: Intent?) {
+    fun onCaptureResult(resultCode: Int, data: Intent?) {
         this.resultCode = resultCode
         this.resultData = data
-        this.appContext = context.applicationContext
         lastError = ""
+        android.util.Log.d("ScreenCapture", "onCaptureResult: resultCode=$resultCode")
+    }
 
-        android.util.Log.d("ScreenCapture", "onCaptureResult: resultCode=$resultCode, data=$data")
-
-        if (resultCode == Activity.RESULT_OK && data != null) {
-            try {
-                val manager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-                android.util.Log.d("ScreenCapture", "MediaProjectionManager obtained: $manager")
-                mediaProjection = manager.getMediaProjection(resultCode, data)
-                android.util.Log.d("ScreenCapture", "MediaProjection created: ${mediaProjection != null}")
-
-                if (mediaProjection == null) {
-                    lastError = "MediaProjection创建返回null"
-                    android.util.Log.e("ScreenCapture", lastError)
-                }
-            } catch (e: Exception) {
-                lastError = "创建MediaProjection异常: ${e.javaClass.simpleName}: ${e.message}"
-                android.util.Log.e("ScreenCapture", "Failed to create MediaProjection", e)
-            } catch (e: Error) {
-                lastError = "创建MediaProjection错误: ${e.javaClass.simpleName}: ${e.message}"
-                android.util.Log.e("ScreenCapture", "Failed to create MediaProjection (Error)", e)
+    /**
+     * 在前台服务中创建MediaProjection
+     * 必须在mediaProjection类型的前台服务中调用
+     */
+    fun initMediaProjection(context: Context): Boolean {
+        if (resultCode != Activity.RESULT_OK || resultData == null) {
+            lastError = "未授权截图权限"
+            return false
+        }
+        return try {
+            val manager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+            mediaProjection = manager.getMediaProjection(resultCode, resultData!!)
+            android.util.Log.d("ScreenCapture", "MediaProjection created in service: ${mediaProjection != null}")
+            if (mediaProjection == null) {
+                lastError = "MediaProjection创建返回null"
+                false
+            } else {
+                lastError = ""
+                true
             }
-        } else {
-            lastError = "授权被拒绝或数据为空"
+        } catch (e: Exception) {
+            lastError = "创建MediaProjection异常: ${e.javaClass.simpleName}: ${e.message}"
+            android.util.Log.e("ScreenCapture", "Failed to create MediaProjection", e)
+            false
         }
     }
 
     /**
-     * 检查是否已有截图权限
+     * 检查是否已有截图权限和MediaProjection
      */
     fun hasPermission(): Boolean {
-        val has = mediaProjection != null
-        android.util.Log.d("ScreenCapture", "hasPermission: $has, lastError=$lastError")
-        return has
+        return mediaProjection != null
+    }
+
+    /**
+     * 检查是否已授权（但可能还没创建MediaProjection）
+     */
+    fun isAuthorized(): Boolean {
+        return resultCode == Activity.RESULT_OK && resultData != null
     }
 
     /**
@@ -88,19 +96,8 @@ object ScreenCaptureHelper {
     suspend fun captureScreen(context: Context): Bitmap? {
         val projection = mediaProjection
         if (projection == null) {
-            // 尝试重新创建
-            if (resultCode == Activity.RESULT_OK && resultData != null && appContext != null) {
-                try {
-                    val manager = appContext!!.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-                    mediaProjection = manager.getMediaProjection(resultCode, resultData!!)
-                } catch (e: Exception) {
-                    android.util.Log.e("ScreenCapture", "Failed to recreate MediaProjection", e)
-                }
-            }
-            if (mediaProjection == null) {
-                android.util.Log.e("ScreenCapture", "MediaProjection is null, lastError=$lastError")
-                return null
-            }
+            lastError = "MediaProjection未初始化"
+            return null
         }
 
         return withContext(Dispatchers.Main) {
@@ -114,10 +111,8 @@ object ScreenCaptureHelper {
                 val height = metrics.heightPixels
                 val density = metrics.densityDpi
 
-                android.util.Log.d("ScreenCapture", "Capturing: ${width}x$height")
-
                 val imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
-                val virtualDisplay = mediaProjection!!.createVirtualDisplay(
+                val virtualDisplay = projection.createVirtualDisplay(
                     "ScreenCapture",
                     width, height, density,
                     DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
@@ -131,8 +126,8 @@ object ScreenCaptureHelper {
 
                 bitmap
             } catch (e: Exception) {
-                android.util.Log.e("ScreenCapture", "Capture failed", e)
                 lastError = "截图失败: ${e.message}"
+                android.util.Log.e("ScreenCapture", "Capture failed", e)
                 null
             }
         }
@@ -176,9 +171,6 @@ object ScreenCaptureHelper {
         }
     }
 
-    /**
-     * 释放资源
-     */
     fun release() {
         mediaProjection?.stop()
         mediaProjection = null
