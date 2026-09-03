@@ -322,7 +322,7 @@ fun TrueFalseQuestion(
                     }
                 ),
                 border = if (isSelected || isCorrect || isWrong)
-                    CardDefaults.outlinedCardBorder()
+                    androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                 else null
             ) {
                 Column(
