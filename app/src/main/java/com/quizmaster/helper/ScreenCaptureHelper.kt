@@ -66,6 +66,22 @@ object ScreenCaptureHelper {
                 lastError = "MediaProjection创建返回null"
                 false
             } else {
+                // 安卓14+要求：必须注册Callback才能开始截图
+                val callback = object : MediaProjection.Callback() {
+                    override fun onStop() {
+                        android.util.Log.d("ScreenCapture", "MediaProjection onStop")
+                        mediaProjection = null
+                        lastError = "屏幕共享已停止"
+                    }
+                    override fun onCapturedContentVisibilityChanged(isVisible: Boolean) {
+                        android.util.Log.d("ScreenCapture", "Content visibility changed: $isVisible")
+                    }
+                    override fun onCapturedContentResize(width: Int, height: Int) {
+                        android.util.Log.d("ScreenCapture", "Content resize: ${width}x$height")
+                    }
+                }
+                mediaProjection!!.registerCallback(callback, mainHandler)
+                android.util.Log.d("ScreenCapture", "MediaProjection callback registered")
                 lastError = ""
                 true
             }
