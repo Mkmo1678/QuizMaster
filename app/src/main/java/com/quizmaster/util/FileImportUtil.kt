@@ -62,7 +62,7 @@ object FileImportUtil {
             when (type) {
                 FileType.DOCX -> DocxParser.parse(bytes.inputStream())
                 FileType.PDF -> PdfParser.parse(bytes.inputStream())
-                FileType.XLSX, FileType.XLS -> LightXlsxParser.parse(bytes.inputStream())
+                FileType.XLSX, FileType.XLS -> LightXlsxParser.parse(context, bytes.inputStream())
                 else -> TxtParser.parseString(bytesToString(bytes))
             }
         } catch (e: Throwable) {

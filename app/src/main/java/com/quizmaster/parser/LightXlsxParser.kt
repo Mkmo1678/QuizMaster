@@ -1,9 +1,11 @@
 package com.quizmaster.parser
 
+import android.content.Context
 import android.util.Log
 import com.quizmaster.data.QuestionType
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
+import java.io.File
 import java.io.InputStream
 import java.util.zip.ZipFile
 
@@ -15,18 +17,17 @@ object LightXlsxParser {
 
     private const val TAG = "LightXlsxParser"
 
-    fun parse(inputStream: InputStream): List<RawQuestion> {
-        // 先保存到临时文件，因为ZipFile需要文件路径
-        val tempFile = java.io.File.createTempFile("quiz_", ".xlsx")
-        tempFile.deleteOnExit()
-        inputStream.use { input ->
-            tempFile.outputStream().use { output ->
-                input.copyTo(output)
+    fun parse(context: Context, inputStream: InputStream): List<RawQuestion> {
+        // 保存到应用缓存目录的临时文件
+        val tempFile = File(context.cacheDir, "quiz_import_${System.currentTimeMillis()}.xlsx")
+        try {
+            inputStream.use { input ->
+                tempFile.outputStream().use { output ->
+                    input.copyTo(output)
+                }
             }
-        }
-
-        return try {
-            parseZipFile(tempFile.absolutePath)
+            Log.d(TAG, "Temp file created: ${tempFile.absolutePath}, size: ${tempFile.length()}")
+            return parseZipFile(tempFile.absolutePath)
         } catch (e: Throwable) {
             Log.e(TAG, "Failed to parse xlsx", e)
             throw e

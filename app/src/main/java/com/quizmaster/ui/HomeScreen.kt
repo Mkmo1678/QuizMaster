@@ -1,5 +1,6 @@
 package com.quizmaster.ui
 
+import android.content.Context
 import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -316,6 +317,49 @@ fun HomeScreen(
                         Text(if (floatingEnabled) "关闭悬浮窗" else "开启悬浮窗", fontSize = 16.sp)
                     }
                 }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 崩溃日志
+            var showCrashLog by remember { mutableStateOf(false) }
+            OutlinedButton(
+                onClick = { showCrashLog = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.BugReport, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("查看崩溃日志", fontSize = 14.sp)
+            }
+
+            if (showCrashLog) {
+                val crashLog = (context.applicationContext as com.quizmaster.QuizApp).getCrashLog()
+                AlertDialog(
+                    onDismissRequest = { showCrashLog = false },
+                    title = { Text("崩溃日志") },
+                    text = {
+                        Column {
+                            Text(crashLog, fontSize = 11.sp, modifier = Modifier.heightIn(max = 300.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
+                            TextButton(onClick = {
+                                (context.applicationContext as com.quizmaster.QuizApp).clearCrashLog()
+                                showCrashLog = false
+                                android.widget.Toast.makeText(context, "已清空", android.widget.Toast.LENGTH_SHORT).show()
+                            }) {
+                                Text("清空日志")
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("crash_log", crashLog))
+                            android.widget.Toast.makeText(context, "已复制", android.widget.Toast.LENGTH_SHORT).show()
+                        }) {
+                            Text("复制")
+                        }
+                    }
+                )
             }
 
             Spacer(modifier = Modifier.height(32.dp))
