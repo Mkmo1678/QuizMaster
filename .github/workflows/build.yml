@@ -31,23 +31,26 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Build Debug APK
+        id: build
         run: |
-          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee build_log.txt
-          echo "EXIT_CODE=${PIPESTATUS[0]}" >> $GITHUB_ENV
-        continue-on-error: true
+          set +e
+          ./gradlew assembleDebug --no-daemon --stacktrace > build_log.txt 2>&1
+          EXIT_CODE=$?
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+          # 输出错误关键行到annotations
+          grep -i -E "error:|FAILURE:|What went wrong:|Caused by:|e: " build_log.txt | head -30 | while read line; do
+            echo "::error::$line"
+          done
+          echo "=== LAST 50 LINES ==="
+          tail -50 build_log.txt
+          exit $EXIT_CODE
 
       - name: Upload build log
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: build-log
           path: build_log.txt
-
-      - name: Check build result
-        run: |
-          if [ "$EXIT_CODE" != "0" ]; then
-            echo "Build failed with exit code $EXIT_CODE"
-            exit 1
-          fi
 
       - name: List output files
         run: ls -la app/build/outputs/apk/debug/
