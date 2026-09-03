@@ -95,8 +95,8 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
                     quizSetId
                 )
                 loadQuizSets()
-            } catch (e: Exception) {
-                _importResult.value = ImportResult(false, "导入失败: ${e.message}")
+            } catch (e: Throwable) {
+                _importResult.value = ImportResult(false, "导入失败: ${e.message ?: e.javaClass.simpleName}")
             }
             _isLoading.value = false
         }

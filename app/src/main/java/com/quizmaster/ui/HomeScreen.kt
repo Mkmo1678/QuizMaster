@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -27,6 +28,7 @@ fun HomeScreen(
     onNavigateToQuiz: (Long) -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var rootStatus by remember { mutableStateOf<Boolean?>(null) }
     val importResult by viewModel.importResult.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -36,7 +38,7 @@ fun HomeScreen(
         ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         uri?.let {
-            val fileName = getFileName(it) ?: "unknown.txt"
+            val fileName = getFileName(context, it) ?: "题库.txt"
             viewModel.importFile(it, fileName)
         }
     }
@@ -248,6 +250,19 @@ fun FeatureItem(icon: androidx.compose.ui.graphics.vector.ImageVector, title: St
     }
 }
 
-fun getFileName(uri: Uri): String? {
-    return uri.lastPathSegment?.split("/")?.lastOrNull() ?: uri.toString().substringAfterLast("/")
+fun getFileName(context: android.content.Context, uri: Uri): String? {
+    return try {
+        val cursor = context.contentResolver.query(uri, null, null, null, null)
+        cursor?.use {
+            if (it.moveToFirst()) {
+                val nameIndex = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                if (nameIndex >= 0) {
+                    return it.getString(nameIndex)
+                }
+            }
+        }
+        uri.lastPathSegment?.split("/")?.lastOrNull() ?: "题库.txt"
+    } catch (e: Exception) {
+        uri.lastPathSegment?.split("/")?.lastOrNull() ?: "题库.txt"
+    }
 }
