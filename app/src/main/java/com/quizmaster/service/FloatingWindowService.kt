@@ -103,7 +103,7 @@ class FloatingWindowService : Service() {
         params.y = 300
 
         val button = Button(this).apply {
-            text = "识题"
+            this.text = "识题"
             textSize = 14f
             setPadding(24, 16, 24, 16)
             setBackgroundColor(0xFF1565C0.toInt())
@@ -302,7 +302,7 @@ class FloatingWindowService : Service() {
         }
 
         val copyButton = Button(this).apply {
-            text = "复制答案"
+            this.text = "复制答案"
             textSize = 13f
             setOnClickListener {
                 val answer = question?.answerContent?.ifBlank { question.answer } ?: text
@@ -312,7 +312,7 @@ class FloatingWindowService : Service() {
         }
 
         val closeButton = Button(this).apply {
-            text = "关闭"
+            this.text = "关闭"
             textSize = 13f
             setOnClickListener {
                 hideResultPanel()
