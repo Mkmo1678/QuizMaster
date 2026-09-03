@@ -115,7 +115,7 @@ fun QuizScreen(
         ) {
             // 进度条
             LinearProgressIndicator(
-                progress = { (currentIndex + 1).toFloat() / questions.size },
+                progress = (currentIndex + 1).toFloat() / questions.size,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(6.dp)
