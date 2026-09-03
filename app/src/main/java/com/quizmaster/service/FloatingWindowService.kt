@@ -185,6 +185,7 @@ class FloatingWindowService : Service() {
         serviceScope.launch {
             try {
                 // 1. 截图
+                Toast.makeText(this@FloatingWindowService, "1/4 正在截图...", Toast.LENGTH_SHORT).show()
                 val bitmap = ScreenCaptureHelper.captureScreen(this@FloatingWindowService)
 
                 if (bitmap == null) {
@@ -192,8 +193,10 @@ class FloatingWindowService : Service() {
                     showResult("截图失败: ${err.ifBlank { "未知错误" }}")
                     return@launch
                 }
+                Log.d(TAG, "Screenshot success: ${bitmap.width}x${bitmap.height}")
 
                 // 2. OCR识别
+                Toast.makeText(this@FloatingWindowService, "2/4 正在识别文字...", Toast.LENGTH_SHORT).show()
                 val ocrText = withContext(Dispatchers.IO) {
                     OcrUtil.recognizeText(bitmap)
                 }
@@ -206,6 +209,7 @@ class FloatingWindowService : Service() {
                 }
 
                 // 3. 加载题库
+                Toast.makeText(this@FloatingWindowService, "3/4 正在匹配题库...", Toast.LENGTH_SHORT).show()
                 val questions = loadQuestions()
 
                 if (questions.isEmpty()) {
@@ -224,13 +228,16 @@ class FloatingWindowService : Service() {
                 }
 
                 // 5. 显示结果
+                Toast.makeText(this@FloatingWindowService, "4/4 匹配成功", Toast.LENGTH_SHORT).show()
                 val bestMatch = matches[0]
                 val resultText = buildResultText(bestMatch.question, bestMatch.score)
                 showResult(resultText, bestMatch.question)
 
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 Log.e(TAG, "Recognition failed", e)
-                showResult("识别出错: ${e.message}")
+                val sw = java.io.StringWriter()
+                e.printStackTrace(java.io.PrintWriter(sw))
+                showResult("识别出错: ${e.javaClass.simpleName}: ${e.message}\n\n${sw.toString().take(300)}")
             }
         }
     }
