@@ -9,10 +9,11 @@ class QuizApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        // 全局异常捕获，防止闪退
+        // 记录未捕获异常，但不吞掉，让系统默认处理（避免闪退无提示）
+        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             Log.e("QuizApp", "Uncaught exception in thread: ${thread.name}", throwable)
-            // 不杀死进程，让应用继续运行
+            defaultHandler?.uncaughtException(thread, throwable)
         }
     }
 }

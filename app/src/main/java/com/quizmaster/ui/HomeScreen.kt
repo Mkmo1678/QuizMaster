@@ -37,9 +37,16 @@ fun HomeScreen(
     val fileLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
-        uri?.let {
-            val fileName = getFileName(context, it) ?: "题库.txt"
-            viewModel.importFile(it, fileName)
+        if (uri == null) {
+            android.widget.Toast.makeText(context, "未选择文件", android.widget.Toast.LENGTH_SHORT).show()
+            return@rememberLauncherForActivityResult
+        }
+        try {
+            val fileName = getFileName(context, uri) ?: "题库.txt"
+            android.widget.Toast.makeText(context, "正在解析: $fileName", android.widget.Toast.LENGTH_SHORT).show()
+            viewModel.importFile(uri, fileName)
+        } catch (e: Exception) {
+            android.widget.Toast.makeText(context, "选择文件出错: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
         }
     }
 
