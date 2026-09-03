@@ -58,7 +58,7 @@ fun QuizScreen(
                     .padding(padding),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator()
+                Text("加载中...", fontSize = 16.sp)
             }
         }
         return
@@ -141,13 +141,12 @@ fun QuizScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
-            // 进度条
-            LinearProgressIndicator(
-                progress = (currentIndex + 1).toFloat() / questions.size,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(3.dp)),
+            // 进度显示
+            Text(
+                "第 ${currentIndex + 1} 题 / 共 ${questions.size} 题",
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth()
             )
 
             Spacer(modifier = Modifier.height(16.dp))
